@@ -2,6 +2,7 @@ import openai
 import os
 from dotenv import load_dotenv
 from flask import Flask, request, jsonify
+from flask_cors import CORS
 import requests
 
 import json
@@ -10,13 +11,25 @@ from database import get_session, create_or_update_session, clear_session
 
 import logging
 
+from postgres import UserLimitChecker
+
 # Load environment variables from .env file
 load_dotenv()
 
 app = Flask(__name__)
+CORS(app)
 
 # Set your API key from environment variable
 openai.api_key = os.getenv('OPENAI_API_KEY')
+
+# Initialize the UserLimitChecker with database parameters
+db_params = {
+    "host": os.getenv('DB_HOST'),
+    "database": os.getenv('DB_NAME'),
+    "user": os.getenv('DB_USER'),
+    "password": os.getenv('DB_PASSWORD')
+}
+user_limit_checker = UserLimitChecker(db_params)
 
 # @app.route('/ask', methods=['POST'])
 def ask_openai(prompt):
@@ -212,15 +225,24 @@ def webhook_setup():
     # return challenge, 200
 
 
+@app.route('/createUser', methods=['POST'])
+def create_user():
+    try:
+        data = request.get_json()
+        id = data['id']
+        username = data['username']
+        email = data['email']
+        phone_number = data['phone_number']
 
-
-
-
+        user_id = user_limit_checker.create_user(id, username, email, phone_number)
+        return jsonify({"status": "success", "user_id": user_id}), 201
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 400
 
 
 @app.route('/')
 def home():
-    return "Hello, Flask!"
+    return jsonify({"status": "success", "message":"Hello World"}), 200
 
 
 if __name__ == '__main__':
