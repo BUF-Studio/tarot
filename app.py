@@ -484,7 +484,7 @@ def create_user():
         email = data["email"]
         phone_number = data["phone_number"]
 
-        user_id = user_limit_checker.create_user(id, username, email, phone_number)
+        user_id = db.create_user(id, username, email, phone_number)
         return jsonify({"status": "success", "user_id": user_id}), 201
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 400
