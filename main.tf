@@ -1,24 +1,40 @@
 provider "aws" {
-  region = "us-west-2"
+  region = "ap-southeast-1"  # Singapore region
 }
 
-module "eks" {
-  source  = "terraform-aws-modules/eks/aws"
-  version = "~> 18.0"
-
-  cluster_name    = "my-cluster"
-  cluster_version = "1.21"
-  subnets         = ["subnet-abcde012", "subnet-bcde012a"]
-
-  vpc_id = "vpc-1234556abcdef"
-
-  node_groups = {
-    example = {
-      desired_capacity = 1
-      max_capacity     = 10
-      min_capacity     = 1
-
-      instance_type = "m5.large"
-    }
+resource "aws_cognito_user_pool" "pool" {
+  name = "tarot-mate"
+  
+  password_policy {
+    minimum_length    = 8
+    require_lowercase = true
+    require_numbers   = true
+    require_symbols   = true
+    require_uppercase = true
   }
 }
+
+resource "aws_cognito_user_pool_client" "client" {
+  name         = "tarot-mate-client"
+  user_pool_id = aws_cognito_user_pool.pool.id
+
+  explicit_auth_flows = [
+    "ALLOW_USER_PASSWORD_AUTH",
+    "ALLOW_REFRESH_TOKEN_AUTH"
+  ]
+}
+
+resource "aws_db_instance" "postgres" {
+  identifier           = "my-postgres-db"
+  engine               = "postgres"
+  engine_version       = "14.13"
+  instance_class       = "db.t3.micro"
+  allocated_storage    = 20
+  storage_type         = "gp2"
+  db_name              = "tarot"
+  username             = var.db_username
+  password             = var.db_password
+  parameter_group_name = "default.postgres14"
+  skip_final_snapshot  = true
+}
+
