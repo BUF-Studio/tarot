@@ -489,6 +489,23 @@ def create_user():
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 400
 
+@app.route('/getUser', methods=['GET'])
+def get_user():
+    user_id = request.args.get('userId')
+
+    if not user_id:
+        return jsonify({'message': 'User ID is required'}), 400
+
+    try:
+        user = db.get_user_info(user_id)
+
+        if user is None:
+            return jsonify(None), 200
+
+        return jsonify(user), 200
+    except Exception as e:
+        print('Error fetching user:', str(e))
+        return jsonify({'message': 'Internal server error'}), 500
 
 def upload_image(card):
     # card = "The Star"
