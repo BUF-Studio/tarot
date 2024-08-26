@@ -9,7 +9,7 @@ import time
 
 
 import json
-from database import get_session, create_or_update_session, clear_session
+# from database import get_session, create_or_update_session, clear_session
 
 
 import logging
@@ -325,7 +325,7 @@ def webhook():
                                     stage = "start"
 
                                 if incoming_msg == "start":
-                                    response_message = "Great! Please focus on your question and type it below."
+                                    response_message = "Now, please try to think about your question thoroughly 💭. Once you are decided, tell me through sending a message to me 💬."
                                     media_id = upload_image("back")
                                     stage = "question"
                                     if not session:
@@ -379,7 +379,7 @@ def webhook():
                                             question=question,
                                         )
                                     else:
-                                        response_message = repeat
+                                        response_message = "I am sorry 😓, but I think you have asked similar question before within 1 week time. While I would really want to help you with this, but you may refer back to the previous session by login in at www.tarotmate.com. I hope that those answers may guide you as you go. \n[Note that asking the same question in short period of time is not allowed in tarot reading]"
                                     # create_or_update_session(
                                     #     sender_id,
                                     #     question,
@@ -423,6 +423,7 @@ def webhook():
                                     else:
                                         response_message = "*Summary*\n\n"
                                         response_message += summary
+                                        response_message += "\n\nPlease ask me any other questions if you have, always ready to help and wish you have a good day ahead 🔮"
 
                                         db.end_session(session[0])
 
@@ -433,7 +434,7 @@ def webhook():
                                         # )  # Clear session after the reading is complete
                                 else:
                                     response_message = (
-                                        "Press _'Start Now'_ to begin the tarot reading."
+                                        "Welcome to TarotMate, is there anything intriguing in your mind? Please let me help you with tarot reading 🔮. \n[Press “Start Now” to begin a new tarot reading journey]"
                                     )
                                     buttonId='start'
                                     buttonLabel='Start Now'
@@ -452,10 +453,24 @@ def webhook():
     return jsonify({"status": "success"}), 200
 
 
-@app.route("/clear", methods=["GET"])
-def clear():
-    clear_session("60189869935")
-    return jsonify({"status": "success"}), 200
+
+
+
+@app.route("/userSessions", methods=["GET"])
+def user_session():
+    user_id = request.args.get('user_id')
+    if not user_id:
+        return jsonify({"error": "User ID is required"}), 400
+
+    sessions = db.get_user_session(user_id)
+
+    if sessions:
+        return jsonify(sessions), 200
+    else:
+        return jsonify({"error": "No sessions found"}), 404
+
+
+   
 
 
 @app.route("/webhook", methods=["GET"])
@@ -484,7 +499,7 @@ def create_user():
         email = data["email"]
         phone_number = data["phone_number"]
 
-        user_id = user_limit_checker.create_user(id, username, email, phone_number)
+        user_id = db.create_user(id, username, email, phone_number)
         return jsonify({"status": "success", "user_id": user_id}), 201
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 400
@@ -537,4 +552,4 @@ def home():
 
 if __name__ == "__main__":
     # testRead()
-    app.run(port=5001, debug=True)
+    app.run(port=5000, debug=True)

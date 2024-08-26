@@ -1,6 +1,7 @@
 import psycopg2
 from psycopg2 import sql, connect
 from datetime import datetime, timedelta
+import logging
 
 
 class TarotDatabase:
@@ -327,6 +328,40 @@ class TarotDatabase:
         self.update_session(session_id=session_id,stage='end')
         # Commit the transaction
         self.conn.commit()
+
+    def get_user_session(self,user_id):
+        try:
+            query = sql.SQL(
+                """
+                SELECT 
+                    session.user_id,
+                    session.question,
+                    session.stage,
+                    session.current_card,
+                    session.session_created,
+                    response.cards,
+                    response.summary
+                FROM 
+                    session
+                JOIN 
+                    response ON session.response_id = response.id
+                WHERE 
+                    session.user_id = %s;
+                """
+            )
+            self.cursor.execute(query, (user_id,))
+            result = self.cursor.fetchall()
+            
+            if result is None:
+                logging.info(f"No session found for user ID: {user_id}")
+                return None
+            
+            return result
+
+        except psycopg2.Error as e:
+            self.conn.rollback()  # Rollback the transaction in case of error
+            logging.error(f"Database error occurred: {e}")
+            return None
 
     def close(self):
         self.cursor.close()
