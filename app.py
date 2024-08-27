@@ -41,7 +41,6 @@ db_params = {
 
 db = TarotDatabase(db_params)
 
-
 def ask_openai(prompt):
     try:
         response = openai.ChatCompletion.create(
@@ -511,8 +510,10 @@ def create_user():
         username = data["username"]
         email = data["email"]
         phone_number = data["phone_number"]
+        age = data["age"]
+        gender = data["gender"]
 
-        user_id = db.create_user(id, username, email, phone_number)
+        user_id = db.create_user(id, username, email, phone_number, age, gender)
         return jsonify({"status": "success", "user_id": user_id}), 201
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 400
