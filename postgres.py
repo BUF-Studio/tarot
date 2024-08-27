@@ -1,5 +1,5 @@
 import psycopg2
-from psycopg2 import sql, connect
+from psycopg2 import IntegrityError, sql, connect
 from datetime import datetime, timedelta
 import logging
 
@@ -11,12 +11,28 @@ class TarotDatabase:
         self.create_table()
 
     def create_table(self):
+        # First, check if the gender enum type exists
+        self.cursor.execute("""
+            SELECT EXISTS (
+                SELECT 1 FROM pg_type WHERE typname = 'gender'
+            );
+        """)
+        enum_exists = self.cursor.fetchone()[0]
+
+        # If the enum doesn't exist, create it
+        if not enum_exists:
+            self.cursor.execute("""
+                CREATE TYPE gender AS ENUM ('Male', 'Female', 'Prefer not to say');
+            """)
+
         create_table_query = """
         CREATE TABLE IF NOT EXISTS users (
             id VARCHAR(255) PRIMARY KEY,
             username VARCHAR(255) NOT NULL,
             email VARCHAR(255) UNIQUE NOT NULL,
             phone_number VARCHAR(20) UNIQUE NOT NULL,
+            age INT,
+            gender gender,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
 
@@ -45,40 +61,54 @@ class TarotDatabase:
             cards TEXT,
             summary TEXT
         );
-        
-
 
         CREATE TABLE IF NOT EXISTS current_session (
             id SERIAL PRIMARY KEY,
             user_id VARCHAR(255) REFERENCES users(id),
             session_id INTEGER REFERENCES session(id)
         );
-
         """
         self.cursor.execute(create_table_query)
         self.conn.commit()
 
-    def create_user(self, id, username, email, phone_number):
-        insert_query = sql.SQL(
+    def create_user(self, id, username, email, phone_number, age=None, gender=None):
+        try:
+            insert_query = sql.SQL(
+                """
+            INSERT INTO users (id, username, email, phone_number, age, gender)
+            VALUES (%s, %s, %s, %s, %s, %s)
+            RETURNING id
             """
-        INSERT INTO users (id, username, email, phone_number)
-        VALUES (%s, %s, %s, %s)
-        RETURNING id
-        """
-        )
-        self.cursor.execute(insert_query, (id, username, email, phone_number))
-        user_id = self.cursor.fetchone()[0]
+            )
+            self.cursor.execute(insert_query, (id, username, email, phone_number, age, gender))
+            user_id = self.cursor.fetchone()[0]
 
-        insert_subscription_query = sql.SQL(
+            insert_subscription_query = sql.SQL(
+                """
+            INSERT INTO subscriptions (user_id, plan, end_date)
+            VALUES (%s, 'free', NULL)
             """
-        INSERT INTO subscriptions (user_id, plan, end_date)
-        VALUES (%s, 'free', NULL)
-        """
-        )
-        self.cursor.execute(insert_subscription_query, (user_id,))
+            )
+            self.cursor.execute(insert_subscription_query, (user_id,))
 
-        self.conn.commit()
-        return user_id
+            self.conn.commit()
+            return user_id, None  # Return user_id and no error message
+
+        except IntegrityError as e:
+            self.conn.rollback()  # Rollback the transaction
+            error_message = str(e)
+            if "users_email_key" in error_message:
+                return None, "Email already exists"
+            elif "users_phone_number_key" in error_message:
+                return None, "Phone number already exists"
+            elif "users_pkey" in error_message:
+                return None, "User ID already exists"
+            else:
+                return None, "An error occurred while creating the user"
+
+        except Exception as e:
+            self.conn.rollback()  # Rollback the transaction
+            return None, f"An unexpected error occurred: {str(e)}"
 
     def create_session(self, user_id, stage):
         insert_query = sql.SQL(
@@ -197,10 +227,8 @@ class TarotDatabase:
     def get_user_info(self, id):
         query = sql.SQL(
             """
-        SELECT u.*, s.plan, s.end_date, r.daily_limit, r.requests_today
+        SELECT u.*
         FROM users u
-        JOIN subscriptions s ON u.id = s.user_id
-        JOIN request_limits r ON u.id = r.user_id
         WHERE u.id = %s
         """
         )
