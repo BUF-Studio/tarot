@@ -468,16 +468,16 @@ def user_session():
     if sessions:
         result = []
         for session in sessions:
-            userid, question, stage, current_card, session_created, cards, summary = (
+            session_id, question, stage, session_created, cards, summary = (
                 session
             )
+            card = json.loads(cards)
             result.append(
-                {"user_id": userid, 
+                {"session_id": session_id, 
                  "question" : question,
                  "stage" : stage,
-                 "current_card" : current_card,
                  "session_created" : session_created,
-                 "cards": cards, 
+                 "cards": card, 
                  "summary": summary}
                 )
         return jsonify(result), 200
