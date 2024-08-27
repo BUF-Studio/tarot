@@ -377,10 +377,9 @@ class TarotDatabase:
             query = sql.SQL(
                 """
                 SELECT 
-                    session.user_id,
+                    session.id,
                     session.question,
                     session.stage,
-                    session.current_card,
                     session.session_created,
                     response.cards,
                     response.summary
