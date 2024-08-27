@@ -9,6 +9,7 @@ import time
 
 
 import json
+
 # from database import get_session, create_or_update_session, clear_session
 
 
@@ -152,7 +153,7 @@ def testRead():
 # VERIFY_TOKEN = os.getenv('META_VERIFY_TOKEN')
 
 WHATSAPP_API_URL = "https://graph.facebook.com/v20.0/391867514003939/"
-ACCESS_TOKEN = "EAAQZATIbxyeQBO5thd4icVMJzK4WawCYr8qZAxbWzf1LWLJzdaK2scdK2ZAIKJ7up6asE1hZAE7VB8bxT8FESi0cZCQM1EVNskHVEG8ZCb2xXwanrzt2aDxRKNi4YWg0C5LZCKh3wQeyiLs7sFgV7SSDLIlBT1PCtLvXsSyX6Ifox3rZBvMJd9T648fJPBq6RgqvBo7ObjOrVgC1MEoEIirUx98OTJ0ZD"
+ACCESS_TOKEN = "EAAQZATIbxyeQBO3kHBLE3DZB405fhAxH5SZBtGZAp35pQsZAoOsJP1KkWEgeuZCBQKZBgVN0Tq225bzfQZAAUKBZCZAJ6cVMZCOx6XYOy4jtyMw3VPcVP7ZAJRSSK8dSnEPGKZAP1Xqf4OLgtm3ex97LZA2D1VVX3XHqp02VhXNkiNmbzuOoShPzYjyRyxFBhKLgrPLHXxd4eUn6e8p6qpsgjd3FbfnQ9FhpkZD"
 VERIFY_TOKEN = "123456"
 
 
@@ -270,7 +271,9 @@ def webhook():
                             if "text" in message:
                                 incoming_msg = message["text"]["body"].lower()
                             else:
-                                incoming_msg = message["interactive"]["button_reply"]['id'].lower()
+                                incoming_msg = message["interactive"]["button_reply"][
+                                    "id"
+                                ].lower()
                             sender_id = message["from"]
 
                             print(f"Message: {incoming_msg}")
@@ -282,14 +285,14 @@ def webhook():
 
                             media_id = None
                             free = True
-                            buttonId =None
-                            buttonLabel =None
+                            buttonId = None
+                            buttonLabel = None
 
                             if plan == "premium" and is_subscription_active(enddate):
                                 free = False
 
                             usage = db.get_usage(user_id)
-                            if free and usage >= 6:
+                            if free and usage >= 2:
                                 response_message = "You have reached your limit. Please upgrade plan for more readings"
                             else:
 
@@ -358,17 +361,17 @@ def webhook():
                                         response_message += (
                                             f"{split_description[1]}\n\n"
                                         )
-                                        response_message += "Press _'Next'_ to continue."
+                                        response_message += (
+                                            "Press _'Next'_ to continue."
+                                        )
 
-                                        buttonId='next'
-                                        buttonLabel='Next'
+                                        buttonId = "next"
+                                        buttonLabel = "Next"
 
                                         media_id = upload_image(split_description[0])
 
                                         current_card = 1
                                         stage = "next_card"
-
-
 
                                         db.create_response(
                                             session_id=session[0],
@@ -400,10 +403,12 @@ def webhook():
                                         response_message += (
                                             f"{split_description[1]}\n\n"
                                         )
-                                        response_message += "Press _'Next'_ to continue."
+                                        response_message += (
+                                            "Press _'Next'_ to continue."
+                                        )
 
-                                        buttonId='next'
-                                        buttonLabel='Next'
+                                        buttonId = "next"
+                                        buttonLabel = "Next"
                                         media_id = upload_image(split_description[0])
 
                                         current_card += 1
@@ -433,11 +438,9 @@ def webhook():
                                         #     sender_id
                                         # )  # Clear session after the reading is complete
                                 else:
-                                    response_message = (
-                                        "Welcome to TarotMate, is there anything intriguing in your mind? Please let me help you with tarot reading 🔮. \n[Press “Start Now” to begin a new tarot reading journey]"
-                                    )
-                                    buttonId='start'
-                                    buttonLabel='Start Now'
+                                    response_message = "Welcome to TarotMate, is there anything intriguing in your mind? Please let me help you with tarot reading 🔮. \n\n[Press “Start Now” to begin a new tarot reading journey]"
+                                    buttonId = "start"
+                                    buttonLabel = "Start Now"
 
                             print(response_message)
 
@@ -446,31 +449,41 @@ def webhook():
                                 time.sleep(1)
 
                             if buttonId:
-                                send_whatsapp_interactive(sender_id,response_message,buttonId,buttonLabel)
+                                send_whatsapp_interactive(
+                                    sender_id, response_message, buttonId, buttonLabel
+                                )
                             else:
                                 send_whatsapp_message(sender_id, response_message)
 
     return jsonify({"status": "success"}), 200
 
 
-
-
-
 @app.route("/userSessions", methods=["GET"])
 def user_session():
-    user_id = request.args.get('user_id')
+    user_id = request.args.get("user_id")
     if not user_id:
         return jsonify({"error": "User ID is required"}), 400
 
     sessions = db.get_user_session(user_id)
 
     if sessions:
-        return jsonify(sessions), 200
+        result = []
+        for session in sessions:
+            userid, question, stage, current_card, session_created, cards, summary = (
+                session
+            )
+            result.append(
+                {"user_id": userid, 
+                 "question" : question,
+                 "stage" : stage,
+                 "current_card" : current_card,
+                 "session_created" : session_created,
+                 "cards": cards, 
+                 "summary": summary}
+                )
+        return jsonify(result), 200
     else:
         return jsonify({"error": "No sessions found"}), 404
-
-
-   
 
 
 @app.route("/webhook", methods=["GET"])
@@ -504,12 +517,13 @@ def create_user():
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 400
 
-@app.route('/getUser', methods=['GET'])
+
+@app.route("/getUser", methods=["GET"])
 def get_user():
-    user_id = request.args.get('userId')
+    user_id = request.args.get("userId")
 
     if not user_id:
-        return jsonify({'message': 'User ID is required'}), 400
+        return jsonify({"message": "User ID is required"}), 400
 
     try:
         user = db.get_user_info(user_id)
@@ -519,8 +533,9 @@ def get_user():
 
         return jsonify(user), 200
     except Exception as e:
-        print('Error fetching user:', str(e))
-        return jsonify({'message': 'Internal server error'}), 500
+        print("Error fetching user:", str(e))
+        return jsonify({"message": "Internal server error"}), 500
+
 
 def upload_image(card):
     # card = "The Star"
@@ -569,4 +584,4 @@ def home():
 
 if __name__ == "__main__":
     # testRead()
-    app.run(port=5000, debug=True)
+    app.run(port=5001, debug=True)
