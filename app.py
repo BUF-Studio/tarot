@@ -500,29 +500,26 @@ def create_user():
         age = data["age"]
         gender = data["gender"]
 
+        print(data)
+
         user_id = db.create_user(id, username, email, phone_number, age, gender)
         return jsonify({"status": "success", "user_id": user_id}), 201
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 400
 
-@app.route('/getUser', methods=['GET'])
+
+@app.route("/getUser", methods=["GET"])
 def get_user():
     user_id = request.args.get('userId')
-
     if not user_id:
-        return jsonify({'message': 'User ID is required'}), 400
+        return jsonify({"error": "User ID is required"}), 400
 
-    try:
-        user = db.get_user_info(user_id)
-
-        if user is None:
-            return jsonify(None), 200
-
-        return jsonify(user), 200
-    except Exception as e:
-        print('Error fetching user:', str(e))
-        return jsonify({'message': 'Internal server error'}), 500
-
+    user_info = db.get_user_info(user_id)
+    if user_info:
+        return jsonify(user_info), 200
+    else:
+        return jsonify({"error": "User not found"}), 404
+    
 def upload_image(card):
     # card = "The Star"
 
@@ -570,4 +567,4 @@ def home():
 
 if __name__ == "__main__":
     # testRead()
-    app.run(port=5000, debug=True)
+    app.run(port=5001, debug=True)

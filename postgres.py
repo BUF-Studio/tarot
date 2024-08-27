@@ -224,16 +224,31 @@ class TarotDatabase:
         # Commit the transaction
         self.conn.commit()
 
-    def get_user_info(self, id):
+    def get_user_info(self, user_id):
         query = sql.SQL(
             """
-        SELECT u.*
-        FROM users u
-        WHERE u.id = %s
-        """
+            SELECT *
+            FROM users
+            WHERE id = %s
+            """
         )
-        self.cursor.execute(query, (id,))
-        return self.cursor.fetchone()
+        try:
+            self.cursor.execute(query, (user_id,))
+            user = self.cursor.fetchone()
+            if user:
+                return {
+                    "id": user[0],
+                    "username": user[1],
+                    "email": user[2],
+                    "phone_number": user[3],
+                    "age": user[4],
+                    "gender": user[5]
+                }
+            return None
+        except Exception as e:
+            print(f"Error fetching user info: {e}")
+            return None
+
 
     def get_plan(self, phone_number):
         try:
