@@ -260,24 +260,29 @@ class TarotDatabase:
     def get_user_info(self, user_id):
         try:
             query = sql.SQL(
-                """
-                SELECT 
-                    username, 
-                    email, 
-                    phone_number, 
-                    age, 
-                    gender, 
-                    model, 
-                    created_at, 
-                    plan, 
-                    start_date, 
-                    end_date
-                FROM 
-                    users
-                JOIN 
-                    subscriptions ON users.id = subscriptions.user_id
-                WHERE 
-                    users.id = %s;
+            """
+            SELECT 
+                u.username, 
+                u.email, 
+                u.phone_number, 
+                u.age, 
+                u.gender, 
+                u.model, 
+                u.created_at, 
+                s.plan, 
+                s.start_date, 
+                s.end_date,
+                (SELECT COUNT(*) 
+                 FROM session 
+                 WHERE user_id = u.id 
+                   AND session_created >= CURRENT_DATE - INTERVAL '7 days'
+                   AND stage = 'end') AS usage_count
+            FROM 
+                users u
+            JOIN 
+                subscriptions s ON u.id = s.user_id
+            WHERE 
+                u.id = %s;
             """
             )
             

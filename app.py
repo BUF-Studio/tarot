@@ -485,7 +485,7 @@ def user():
     user = db.get_user_info(user_id)
 
     if user:
-        name, email, phone_number, age, gender, model, created_at, subscription_type, subscription_start, subscription_end = (user)
+        name, email, phone_number, age, gender, model, created_at, subscription_type, subscription_start, subscription_end, usage = (user)
         user_info = {
             'name': name,
             'email': email,
@@ -496,7 +496,8 @@ def user():
             'created_at': created_at,
             'subscription_type': subscription_type,
             'subscription_start': subscription_start,
-            'subscription_end': subscription_end
+            'subscription_end': subscription_end,
+            'usage': usage
         }
         return jsonify(user_info), 200
     else:
