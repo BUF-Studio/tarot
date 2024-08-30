@@ -42,7 +42,7 @@ class TarotDatabase:
             phone_number VARCHAR(20) UNIQUE NOT NULL,
             age INT,
             gender gender,
-            model model,
+            model model DEFAULT 'gpt4o',
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
 
@@ -258,32 +258,43 @@ class TarotDatabase:
         self.conn.commit()
 
     def get_user_info(self, user_id):
-        query = sql.SQL(
+        try:
+            query = sql.SQL(
+                """
+                SELECT 
+                    username, 
+                    email, 
+                    phone_number, 
+                    age, 
+                    gender, 
+                    model, 
+                    created_at, 
+                    plan, 
+                    start_date, 
+                    end_date
+                FROM 
+                    users
+                JOIN 
+                    subscriptions ON users.id = subscriptions.user_id
+                WHERE 
+                    users.id = %s;
             """
-            SELECT 
-                username, 
-                email, 
-                phone_number, 
-                age, 
-                gender, 
-                model, 
-                created_at, 
-                plan, 
-                start_date, 
-                end_date
-            FROM 
-                users
-            JOIN 
-                subscriptions ON users.id = subscriptions.user_id
-            WHERE 
-                users.id = %s;
-        """
-        )
+            )
+            
+            self.cursor.execute(query, (user_id,))
+            result = self.cursor.fetchone()
         
-        self.cursor.execute(query, (user_id,))
-        return self.cursor.fetchone()
-           
+            if result is None:
+                logging.info(f"No User found for user ID: {user_id}")
+                return None
 
+            return result
+        
+        except psycopg2.Error as e:
+            self.conn.rollback()  # Rollback the transaction in case of error
+            logging.error(f"Database error occurred: {e}")
+            return None
+           
 
     def get_plan(self, phone_number):
         try:
