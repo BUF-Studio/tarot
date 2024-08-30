@@ -560,6 +560,8 @@ def create_user():
         gender = data["gender"]
         model = data["model"]
 
+        print(data)
+
         user_id = db.create_user(id, username, email, phone_number, age, gender,model)
         return jsonify({"status": "success", "user_id": user_id}), 201
     except Exception as e:
@@ -567,11 +569,12 @@ def create_user():
 
 
 @app.route("/getUser", methods=["GET"])
+
+@app.route("/getUser", methods=["GET"])
 def get_user():
     user_id = request.args.get("userId")
-
     if not user_id:
-        return jsonify({"message": "User ID is required"}), 400
+        return jsonify({"error": "User ID is required"}), 400
 
     try:
         user = db.get_user_info(user_id)

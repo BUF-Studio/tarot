@@ -257,7 +257,7 @@ class TarotDatabase:
         # Commit the transaction
         self.conn.commit()
 
-    def get_user_info(self, id):
+    def get_user_info(self, user_id):
         query = sql.SQL(
             """
             SELECT 
@@ -279,8 +279,11 @@ class TarotDatabase:
                 users.id = %s;
         """
         )
-        self.cursor.execute(query, (id,))
+        
+        self.cursor.execute(query, (user_id,))
         return self.cursor.fetchone()
+           
+
 
     def get_plan(self, phone_number):
         try:
