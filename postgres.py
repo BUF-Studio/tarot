@@ -12,18 +12,27 @@ class TarotDatabase:
 
     def create_table(self):
         # First, check if the gender enum type exists
-        self.cursor.execute("""
+        self.cursor.execute(
+            """
             SELECT EXISTS (
                 SELECT 1 FROM pg_type WHERE typname = 'gender'
             );
-        """)
+        """
+        )
         enum_exists = self.cursor.fetchone()[0]
 
         # If the enum doesn't exist, create it
         if not enum_exists:
-            self.cursor.execute("""
+            self.cursor.execute(
+                """
                 CREATE TYPE gender AS ENUM ('Male', 'Female', 'Prefer not to say');
-            """)
+            """
+            )
+            self.cursor.execute(
+                """
+                CREATE TYPE model AS ENUM ('gpt4o', 'gpt4o-mini', 'llama3.1');
+            """
+            )
 
         create_table_query = """
         CREATE TABLE IF NOT EXISTS users (
@@ -33,6 +42,7 @@ class TarotDatabase:
             phone_number VARCHAR(20) UNIQUE NOT NULL,
             age INT,
             gender gender,
+            model model,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
 
@@ -71,16 +81,20 @@ class TarotDatabase:
         self.cursor.execute(create_table_query)
         self.conn.commit()
 
-    def create_user(self, id, username, email, phone_number, age=None, gender=None):
+    def create_user(
+        self, id, username, email, phone_number, age=None, gender=None, model=None
+    ):
         try:
             insert_query = sql.SQL(
                 """
-            INSERT INTO users (id, username, email, phone_number, age, gender)
-            VALUES (%s, %s, %s, %s, %s, %s)
+            INSERT INTO users (id, username, email, phone_number, age, gender,model)
+            VALUES (%s, %s, %s, %s, %s, %s, %s)
             RETURNING id
             """
             )
-            self.cursor.execute(insert_query, (id, username, email, phone_number, age, gender))
+            self.cursor.execute(
+                insert_query, (id, username, email, phone_number, age, gender, model)
+            )
             user_id = self.cursor.fetchone()[0]
 
             insert_subscription_query = sql.SQL(
@@ -200,6 +214,25 @@ class TarotDatabase:
 
         self.conn.commit()
 
+    def update_model(self, user_id, model):
+        if model not in ["gpt4o", "gpt4o-mini", "llama3.1"]:
+            raise ValueError(
+                "Invalid model. Must be 'gpt4o', 'gpt4o-mini', 'llama3.1'."
+            )
+
+        # daily_limit = None if plan == "premium" else 5
+
+        update_subscription_query = sql.SQL(
+            """
+        UPDATE users
+        SET model = %s
+        WHERE id = %s
+        """
+        )
+        self.cursor.execute(update_subscription_query, (model, user_id))
+
+        self.conn.commit()
+
     def update_session(
         self, session_id, question=None, current_card=None, stage=None, response_id=None
     ):
@@ -227,9 +260,23 @@ class TarotDatabase:
     def get_user_info(self, id):
         query = sql.SQL(
             """
-        SELECT u.*
-        FROM users u
-        WHERE u.id = %s
+            SELECT 
+                username, 
+                email, 
+                phone_number, 
+                age, 
+                gender, 
+                model, 
+                created_at, 
+                plan, 
+                start_date, 
+                end_date
+            FROM 
+                users
+            JOIN 
+                subscriptions ON users.id = subscriptions.user_id
+            WHERE 
+                users.id = %s;
         """
         )
         self.cursor.execute(query, (id,))
@@ -255,9 +302,9 @@ class TarotDatabase:
             self.cursor.execute(query, (phone_number,))
             return self.cursor.fetchone()
         except psycopg2.Error as e:
-                self.conn.rollback()  # Rollback the transaction in case of error
-                print(f"Error occurred: {e}")
-                return None
+            self.conn.rollback()  # Rollback the transaction in case of error
+            print(f"Error occurred: {e}")
+            return None
 
     def get_usage(self, user_id):
         query = sql.SQL(
@@ -322,7 +369,7 @@ class TarotDatabase:
             return result
         return None
 
-    def get_response(self,session_id):
+    def get_response(self, session_id):
         query = sql.SQL(
             """
             SELECT cards, summary
@@ -341,7 +388,7 @@ class TarotDatabase:
         except Exception as e:
             print(e)
             return None
-        
+
     def end_session(self, session_id):
         delete_query = sql.SQL(
             """
@@ -353,11 +400,11 @@ class TarotDatabase:
         # Execute the query with the provided session_id
         self.cursor.execute(delete_query, (session_id,))
 
-        self.update_session(session_id=session_id,stage='end')
+        self.update_session(session_id=session_id, stage="end")
         # Commit the transaction
         self.conn.commit()
 
-    def get_user_session(self,user_id):
+    def get_user_session(self, user_id):
         try:
             query = sql.SQL(
                 """
@@ -378,11 +425,11 @@ class TarotDatabase:
             )
             self.cursor.execute(query, (user_id,))
             result = self.cursor.fetchall()
-            
+
             if result is None:
                 logging.info(f"No session found for user ID: {user_id}")
                 return None
-            
+
             return result
 
         except psycopg2.Error as e:

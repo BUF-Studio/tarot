@@ -6,7 +6,8 @@ from flask_cors import CORS
 import requests
 from datetime import datetime
 import time
-
+from transformers import AutoModelForCausalLM, AutoTokenizer
+from huggingface_hub import login
 
 import json
 
@@ -40,6 +41,23 @@ db_params = {
 }
 
 db = TarotDatabase(db_params)
+
+
+
+# llama_access_token = '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'
+# login(token=llama_access_token)
+# # Load the model and tokenizer
+# model_name = "meta-llama/Meta-Llama-3.1-8B-Instruct"
+# tokenizer = AutoTokenizer.from_pretrained(model_name)
+# model = AutoModelForCausalLM.from_pretrained(model_name)
+
+# def ask_llama(prompt):
+#     inputs = tokenizer(prompt, return_tensors='pt')
+#     outputs = model.generate(**inputs)
+#     generated_text = tokenizer.decode(outputs[0], skip_special_tokens=True)
+#     print(generated_text)
+
+#     pass
 
 def ask_openai(prompt):
     try:
@@ -89,7 +107,8 @@ def generate_tarot_cards(question):
     
        
     """
-    response = ask_openai(prompt)
+    response = ask_llama(prompt)
+    # response = ask_openai(prompt)
 
     return eval(response)
 
@@ -502,6 +521,33 @@ def webhook_setup():
     # return challenge, 200
 
 
+@app.route("/updateUserModel", methods=["POST"])
+def updateUserModel():
+    try:
+        data = request.get_json()
+        id = data["id"]
+        model = data["model"]
+       
+
+        db.update_model(id, model)
+        return jsonify({"status": "success"}), 201
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 400
+
+@app.route("/updateUserSubscription", methods=["POST"])
+def updateUserSubscription():
+    try:
+        data = request.get_json()
+        id = data["id"]
+        plan = data["plan"]
+        duration = data["duration"]
+
+        db.update_subscription(id, plan, duration)
+        return jsonify({"status": "success"}), 201
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 400
+
+
 @app.route("/createUser", methods=["POST"])
 def create_user():
     try:
@@ -512,8 +558,9 @@ def create_user():
         phone_number = data["phone_number"]
         age = data["age"]
         gender = data["gender"]
+        model = data["model"]
 
-        user_id = db.create_user(id, username, email, phone_number, age, gender)
+        user_id = db.create_user(id, username, email, phone_number, age, gender,model)
         return jsonify({"status": "success", "user_id": user_id}), 201
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 400
@@ -531,8 +578,21 @@ def get_user():
 
         if user is None:
             return jsonify(None), 200
+        
+        user_info = {
+            'name': user[0],
+            'email': user[1],
+            'phone_number': user[2],
+            'age': user[3],
+            'gender': user[4],
+            'model': user[5],
+            'created_at': user[6],
+            'subscription_type': user[7],
+            'subscription_start': user[8],
+            'subscription_end': user[9]
+        }
 
-        return jsonify(user), 200
+        return jsonify(user_info), 200
     except Exception as e:
         print("Error fetching user:", str(e))
         return jsonify({"message": "Internal server error"}), 500
@@ -585,4 +645,5 @@ def home():
 
 if __name__ == "__main__":
     # testRead()
+    # generate_tarot_cards('How is my exam')
     app.run(port=5001, debug=True)
