@@ -32,7 +32,7 @@ logging.basicConfig(
 # Set your API key from environment variable
 openai.api_key = os.getenv("OPENAI_API_KEY")
 
-# Initialize the UserLimitChecker with database parameters
+# Initialize the database with database parameters
 db_params = {
     "host": os.getenv("DB_HOST"),
     "database": os.getenv("DB_NAME"),
@@ -496,6 +496,51 @@ def webhook():
     return jsonify({"status": "success"}), 200
 
 
+@app.route("/user", methods=["GET"])
+def user():
+    user_id = request.args.get("userId")
+    if not user_id:
+        return jsonify({"error": "User ID is required"}), 400
+    
+    user = db.get_user_info(user_id)
+
+    if user:
+        name, email, phone_number, age, gender, model, created_at, subscription_type, subscription_start, subscription_end, usage = (user)
+        user_info = {
+            'name': name,
+            'email': email,
+            'phone_number': phone_number,
+            'age': age,
+            'gender': gender,
+            'model': model,
+            'created_at': created_at,
+            'subscription_type': subscription_type,
+            'subscription_start': subscription_start,
+            'subscription_end': subscription_end,
+            'usage': usage
+        }
+        return jsonify(user_info), 200
+    else:
+        return jsonify({"error": "User not found"}), 404
+
+@app.route("/createUser", methods=["POST"])
+def create_user():
+    try:
+        data = request.get_json()
+        id = data["id"]
+        username = data["username"]
+        email = data["email"]
+        phone_number = data["phone_number"]
+        age = data["age"]
+        gender = data["gender"]
+
+        print(data)
+
+        user_id = db.create_user(id, username, email, phone_number, age, gender)
+        return jsonify({"status": "success", "user_id": user_id}), 201
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 400
+
 @app.route("/userSessions", methods=["GET"])
 def user_session():
     user_id = request.args.get("user_id")
@@ -522,6 +567,7 @@ def user_session():
         return jsonify(result), 200
     else:
         return jsonify({"error": "No sessions found"}), 404
+    
 
 
 @app.route("/webhook", methods=["GET"])
@@ -554,6 +600,7 @@ def updateUserModel():
         return jsonify({"status": "error", "message": str(e)}), 400
 
 
+
 @app.route("/updateUserSubscription", methods=["POST"])
 def updateUserSubscription():
     try:
@@ -582,13 +629,14 @@ def create_user():
 
         print(data)
 
-        user_id = db.create_user(id, username, email, phone_number, age, gender, model)
+        user_id = db.create_user(id, username, email, phone_number, age, gender,model)
         return jsonify({"status": "success", "user_id": user_id}), 201
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 400
 
 
 @app.route("/getUser", methods=["GET"])
+
 @app.route("/getUser", methods=["GET"])
 def get_user():
     user_id = request.args.get("userId")
@@ -600,18 +648,18 @@ def get_user():
 
         if user is None:
             return jsonify(None), 200
-
+        
         user_info = {
-            "name": user[0],
-            "email": user[1],
-            "phone_number": user[2],
-            "age": user[3],
-            "gender": user[4],
-            "model": user[5],
-            "created_at": user[6],
-            "subscription_type": user[7],
-            "subscription_start": user[8],
-            "subscription_end": user[9],
+            'name': user[0],
+            'email': user[1],
+            'phone_number': user[2],
+            'age': user[3],
+            'gender': user[4],
+            'model': user[5],
+            'created_at': user[6],
+            'subscription_type': user[7],
+            'subscription_start': user[8],
+            'subscription_end': user[9]
         }
 
         return jsonify(user_info), 200
@@ -619,7 +667,7 @@ def get_user():
         print("Error fetching user:", str(e))
         return jsonify({"message": "Internal server error"}), 500
 
-
+    
 def upload_image(card):
     # card = "The Star"
 
