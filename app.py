@@ -67,7 +67,7 @@ def ask_llama(prompt):
         return jsonify({"error": str(e)}), 500
 
 
-def ask_openai(prompt,model):
+def ask_openai(prompt, model):
     try:
         response = openai.ChatCompletion.create(
             model="gpt-3.5-turbo",  # Use a supported model
@@ -82,7 +82,7 @@ def ask_openai(prompt,model):
         return jsonify({"error": str(e)}), 500
 
 
-def generate_tarot_cards(question,model):
+def generate_tarot_cards(question, model):
     prompt = f"""
                 You are a tarot card reader. Please provide a detailed reading for the following question : "{question}". 
 
@@ -96,7 +96,7 @@ def generate_tarot_cards(question,model):
             6. Advice
 
             Each card description should include:
-            - The card name
+            - The accurate card name using 1909 the Rider-Waite tarot deck in words
             - A detailed explanation of what the card signifies in the given position
             - Link the interpretation to the question
 
@@ -121,9 +121,9 @@ def generate_tarot_cards(question,model):
         response = ask_llama(prompt)
         return eval(response)
     else:
-        response = ask_openai(prompt,model)
+        response = ask_openai(prompt, model)
         return eval(response)
-    
+
     # # response = ask_openai(prompt)
 
     # print(response)
@@ -135,7 +135,12 @@ def check_similar(question, past_questions):
     formatted_questions = "\n".join([f"- {q}" for q in past_questions])
 
     prompt = f"""
-        You are a question similarity checker. Below is a list of questions and a target question. Determine if the target question is similar to any of the questions in the list.
+        You are a question similarity checker for tarot reading. Below is a list of questions and a target question. Your task is to determine if the target question is similar to any of the questions in the list.
+
+        **Important:**
+        - Consider questions similar only if they are asking about the exact same topic or concern (e.g., finances, career, love).
+        - Do not consider questions similar if they are about different topics, even if they share similar structures, time frames, or keywords.
+        - Pay close attention to the underlying intent and purpose of each question. Only mark them as similar if they are fundamentally asking about the same issue.
 
         List of Questions:
         {formatted_questions}
@@ -143,16 +148,19 @@ def check_similar(question, past_questions):
         Target Question:
         {question}
 
-        Check if the Target Question is similar to any of the questions in the list. If there is a similar question, respond with:
-        "The question '{{question}}' is similar to '{{similar_question}}'"
+        Instructions:
 
-        If there is no similar question, respond with:
+        1. If the target question is similar in both meaning and context to any question in the list, respond with:
+        "Similar: '{{target_question}}' is similar to '{{similar_question}}'."
+        
+
+        2. If the target question is not similar in meaning or context, respond with:
         no
 
-        Provide a clear and concise response.
-    """
+        Ensure your response accurately reflects the meaning and context of the questions and following the response format without excessive description.
+     """
 
-    response = ask_openai(prompt)
+    response = ask_llama(prompt)
 
     print("response")
     print(response)
@@ -189,7 +197,7 @@ def testRead():
 # VERIFY_TOKEN = os.getenv('META_VERIFY_TOKEN')
 
 WHATSAPP_API_URL = "https://graph.facebook.com/v20.0/391867514003939/"
-ACCESS_TOKEN = "EAAQZATIbxyeQBO3kHBLE3DZB405fhAxH5SZBtGZAp35pQsZAoOsJP1KkWEgeuZCBQKZBgVN0Tq225bzfQZAAUKBZCZAJ6cVMZCOx6XYOy4jtyMw3VPcVP7ZAJRSSK8dSnEPGKZAP1Xqf4OLgtm3ex97LZA2D1VVX3XHqp02VhXNkiNmbzuOoShPzYjyRyxFBhKLgrPLHXxd4eUn6e8p6qpsgjd3FbfnQ9FhpkZD"
+ACCESS_TOKEN = "EAAQZATIbxyeQBO5EvP1a9DizQe1Xdv8ZADZAl8CXOVEaI3pWGxaRfFKXpu6ZAEbFDZAIQjnVO4jkFhDNserO1BwA13gj1r87bsikNP4O9bmpqDDAI9eXoNAW7icnktnHZCGTpZB4l5HdwV1od8vMI9grP56FTC7gnIdBa2WeRkCty1blSx0kPNxvnzF84oSJowcSfyJ2sWs9tKC0gJx6G8Ro3YxFWUZD"
 VERIFY_TOKEN = "123456"
 
 
@@ -328,7 +336,7 @@ def webhook():
                                 free = False
 
                             usage = db.get_usage(user_id)
-                            if free and usage >= 2:
+                            if free and usage >= 5:
                                 response_message = "You have reached your limit. Please upgrade plan for more readings"
                             else:
 
@@ -377,12 +385,11 @@ def webhook():
                                     question = incoming_msg
                                     past_ques = db.get_question(user_id)
 
-
                                     repeat = check_similar(question, past_ques)
                                     if repeat == "no":
                                         model = db.get_model(user_id)
                                         tarot_reading = generate_tarot_cards(
-                                            incoming_msg,model
+                                            incoming_msg, model
                                         )
                                         # print(tarot_reading)
                                         cards = tarot_reading["cards"]
@@ -420,7 +427,8 @@ def webhook():
                                             question=question,
                                         )
                                     else:
-                                        response_message = "I am sorry 😓, but I think you have asked similar question before within 1 week time. While I would really want to help you with this, but you may refer back to the previous session by login in at www.tarotmate.com. I hope that those answers may guide you as you go. \n[Note that asking the same question in short period of time is not allowed in tarot reading]"
+                                        response_message = repeat
+                                        response_message += "I am sorry 😓, but I think you have asked similar question before within 1 week time. While I would really want to help you with this, but you may refer back to the previous session by login in at www.tarotmate.com. I hope that those answers may guide you as you go. \n[Note that asking the same question in short period of time is not allowed in tarot reading]"
                                     # create_or_update_session(
                                     #     sender_id,
                                     #     question,
@@ -501,27 +509,40 @@ def user():
     user_id = request.args.get("userId")
     if not user_id:
         return jsonify({"error": "User ID is required"}), 400
-    
+
     user = db.get_user_info(user_id)
 
     if user:
-        name, email, phone_number, age, gender, model, created_at, subscription_type, subscription_start, subscription_end, usage = (user)
+        (
+            name,
+            email,
+            phone_number,
+            age,
+            gender,
+            model,
+            created_at,
+            subscription_type,
+            subscription_start,
+            subscription_end,
+            usage,
+        ) = user
         user_info = {
-            'name': name,
-            'email': email,
-            'phone_number': phone_number,
-            'age': age,
-            'gender': gender,
-            'model': model,
-            'created_at': created_at,
-            'subscription_type': subscription_type,
-            'subscription_start': subscription_start,
-            'subscription_end': subscription_end,
-            'usage': usage
+            "name": name,
+            "email": email,
+            "phone_number": phone_number,
+            "age": age,
+            "gender": gender,
+            "model": model,
+            "created_at": created_at,
+            "subscription_type": subscription_type,
+            "subscription_start": subscription_start,
+            "subscription_end": subscription_end,
+            "usage": usage,
         }
         return jsonify(user_info), 200
     else:
         return jsonify({"error": "User not found"}), 404
+
 
 @app.route("/createUser", methods=["POST"])
 def create_user():
@@ -540,6 +561,7 @@ def create_user():
         return jsonify({"status": "success", "user_id": user_id}), 201
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 400
+
 
 @app.route("/userSessions", methods=["GET"])
 def user_session():
@@ -567,7 +589,6 @@ def user_session():
         return jsonify(result), 200
     else:
         return jsonify({"error": "No sessions found"}), 404
-    
 
 
 @app.route("/webhook", methods=["GET"])
@@ -600,7 +621,6 @@ def updateUserModel():
         return jsonify({"status": "error", "message": str(e)}), 400
 
 
-
 @app.route("/updateUserSubscription", methods=["POST"])
 def updateUserSubscription():
     try:
@@ -615,27 +635,25 @@ def updateUserSubscription():
         return jsonify({"status": "error", "message": str(e)}), 400
 
 
-@app.route("/createUser", methods=["POST"])
-def create_user():
-    try:
-        data = request.get_json()
-        id = data["id"]
-        username = data["username"]
-        email = data["email"]
-        phone_number = data["phone_number"]
-        age = data["age"]
-        gender = data["gender"]
-        model = data["model"]
+# @app.route("/createUser", methods=["POST"])
+# def create_user():
+#     try:
+#         data = request.get_json()
+#         id = data["id"]
+#         username = data["username"]
+#         email = data["email"]
+#         phone_number = data["phone_number"]
+#         age = data["age"]
+#         gender = data["gender"]
+#         model = data["model"]
 
-        print(data)
+#         print(data)
 
-        user_id = db.create_user(id, username, email, phone_number, age, gender,model)
-        return jsonify({"status": "success", "user_id": user_id}), 201
-    except Exception as e:
-        return jsonify({"status": "error", "message": str(e)}), 400
+#         user_id = db.create_user(id, username, email, phone_number, age, gender,model)
+#         return jsonify({"status": "success", "user_id": user_id}), 201
+#     except Exception as e:
+#         return jsonify({"status": "error", "message": str(e)}), 400
 
-
-@app.route("/getUser", methods=["GET"])
 
 @app.route("/getUser", methods=["GET"])
 def get_user():
@@ -648,18 +666,18 @@ def get_user():
 
         if user is None:
             return jsonify(None), 200
-        
+
         user_info = {
-            'name': user[0],
-            'email': user[1],
-            'phone_number': user[2],
-            'age': user[3],
-            'gender': user[4],
-            'model': user[5],
-            'created_at': user[6],
-            'subscription_type': user[7],
-            'subscription_start': user[8],
-            'subscription_end': user[9]
+            "name": user[0],
+            "email": user[1],
+            "phone_number": user[2],
+            "age": user[3],
+            "gender": user[4],
+            "model": user[5],
+            "created_at": user[6],
+            "subscription_type": user[7],
+            "subscription_start": user[8],
+            "subscription_end": user[9],
         }
 
         return jsonify(user_info), 200
@@ -667,7 +685,7 @@ def get_user():
         print("Error fetching user:", str(e))
         return jsonify({"message": "Internal server error"}), 500
 
-    
+
 def upload_image(card):
     # card = "The Star"
 
@@ -714,5 +732,5 @@ def home():
 
 
 if __name__ == "__main__":
-   
+
     app.run(port=5001, debug=True)
