@@ -42,7 +42,7 @@ class TarotDatabase:
             phone_number VARCHAR(20) UNIQUE NOT NULL,
             age INT,
             gender gender,
-            model model DEFAULT 'gpt4o',
+            model model DEFAULT 'gpt-4o',
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
 
