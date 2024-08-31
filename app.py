@@ -6,8 +6,8 @@ from flask_cors import CORS
 import requests
 from datetime import datetime
 import time
-from transformers import AutoModelForCausalLM, AutoTokenizer
-from huggingface_hub import login
+
+from groq import Groq
 
 import json
 
@@ -43,23 +43,31 @@ db_params = {
 db = TarotDatabase(db_params)
 
 
+groq_api_key = "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"
+os.environ["GROQ_API_KEY"] = groq_api_key
 
-# llama_access_token = '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'
-# login(token=llama_access_token)
-# # Load the model and tokenizer
-# model_name = "meta-llama/Meta-Llama-3.1-8B-Instruct"
-# tokenizer = AutoTokenizer.from_pretrained(model_name)
-# model = AutoModelForCausalLM.from_pretrained(model_name)
 
-# def ask_llama(prompt):
-#     inputs = tokenizer(prompt, return_tensors='pt')
-#     outputs = model.generate(**inputs)
-#     generated_text = tokenizer.decode(outputs[0], skip_special_tokens=True)
-#     print(generated_text)
+def ask_llama(prompt):
+    try:
 
-#     pass
+        client = Groq()
+        response = client.chat.completions.create(
+            model="llama-3.1-8b-instant",
+            messages=[{"role": "user", "content": prompt}],
+            max_tokens=1000,
+        )
 
-def ask_openai(prompt):
+        # print(response)
+        # print(response.choices[0].message)
+        return response.choices[0].message.content
+
+    except openai.OpenAIError as e:
+        return jsonify({"error": str(e)}), 500
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+def ask_openai(prompt,model):
     try:
         response = openai.ChatCompletion.create(
             model="gpt-3.5-turbo",  # Use a supported model
@@ -74,7 +82,7 @@ def ask_openai(prompt):
         return jsonify({"error": str(e)}), 500
 
 
-def generate_tarot_cards(question):
+def generate_tarot_cards(question,model):
     prompt = f"""
                 You are a tarot card reader. Please provide a detailed reading for the following question : "{question}". 
 
@@ -92,7 +100,7 @@ def generate_tarot_cards(question):
             - A detailed explanation of what the card signifies in the given position
             - Link the interpretation to the question
 
-            Return the descriptions and summary in the following format:
+            Return the descriptions and summary in the following format without additional heading and footing description:
             {{
                 "cards": [
                     {{"position": "You", "description": "Card Name - Detailed Description"}},
@@ -107,10 +115,20 @@ def generate_tarot_cards(question):
     
        
     """
-    response = ask_llama(prompt)
-    # response = ask_openai(prompt)
 
-    return eval(response)
+    # "gpt-4o", "gpt-4o-mini", "llama3.1"
+    if model == "llama3.1":
+        response = ask_llama(prompt)
+        return eval(response)
+    else:
+        response = ask_openai(prompt,model)
+        return eval(response)
+    
+    # # response = ask_openai(prompt)
+
+    # print(response)
+
+    # return eval(response)
 
 
 def check_similar(question, past_questions):
@@ -359,10 +377,12 @@ def webhook():
                                     question = incoming_msg
                                     past_ques = db.get_question(user_id)
 
+
                                     repeat = check_similar(question, past_ques)
                                     if repeat == "no":
+                                        model = db.get_model(user_id)
                                         tarot_reading = generate_tarot_cards(
-                                            incoming_msg
+                                            incoming_msg,model
                                         )
                                         # print(tarot_reading)
                                         cards = tarot_reading["cards"]
@@ -487,18 +507,18 @@ def user_session():
     if sessions:
         result = []
         for session in sessions:
-            session_id, question, stage, session_created, cards, summary = (
-                session
-            )
+            session_id, question, stage, session_created, cards, summary = session
             card = json.loads(cards)
             result.append(
-                {"session_id": session_id, 
-                 "question" : question,
-                 "stage" : stage,
-                 "session_created" : session_created,
-                 "cards": card, 
-                 "summary": summary}
-                )
+                {
+                    "session_id": session_id,
+                    "question": question,
+                    "stage": stage,
+                    "session_created": session_created,
+                    "cards": card,
+                    "summary": summary,
+                }
+            )
         return jsonify(result), 200
     else:
         return jsonify({"error": "No sessions found"}), 404
@@ -527,12 +547,12 @@ def updateUserModel():
         data = request.get_json()
         id = data["id"]
         model = data["model"]
-       
 
         db.update_model(id, model)
         return jsonify({"status": "success"}), 201
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 400
+
 
 @app.route("/updateUserSubscription", methods=["POST"])
 def updateUserSubscription():
@@ -562,14 +582,13 @@ def create_user():
 
         print(data)
 
-        user_id = db.create_user(id, username, email, phone_number, age, gender,model)
+        user_id = db.create_user(id, username, email, phone_number, age, gender, model)
         return jsonify({"status": "success", "user_id": user_id}), 201
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 400
 
 
 @app.route("/getUser", methods=["GET"])
-
 @app.route("/getUser", methods=["GET"])
 def get_user():
     user_id = request.args.get("userId")
@@ -581,18 +600,18 @@ def get_user():
 
         if user is None:
             return jsonify(None), 200
-        
+
         user_info = {
-            'name': user[0],
-            'email': user[1],
-            'phone_number': user[2],
-            'age': user[3],
-            'gender': user[4],
-            'model': user[5],
-            'created_at': user[6],
-            'subscription_type': user[7],
-            'subscription_start': user[8],
-            'subscription_end': user[9]
+            "name": user[0],
+            "email": user[1],
+            "phone_number": user[2],
+            "age": user[3],
+            "gender": user[4],
+            "model": user[5],
+            "created_at": user[6],
+            "subscription_type": user[7],
+            "subscription_start": user[8],
+            "subscription_end": user[9],
         }
 
         return jsonify(user_info), 200
@@ -647,6 +666,5 @@ def home():
 
 
 if __name__ == "__main__":
-    # testRead()
-    # generate_tarot_cards('How is my exam')
+   
     app.run(port=5001, debug=True)

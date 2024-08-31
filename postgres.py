@@ -30,7 +30,7 @@ class TarotDatabase:
             )
             self.cursor.execute(
                 """
-                CREATE TYPE model AS ENUM ('gpt4o', 'gpt4o-mini', 'llama3.1');
+                CREATE TYPE model AS ENUM ('gpt-4o', 'gpt-4o-mini', 'llama3.1');
             """
             )
 
@@ -215,9 +215,9 @@ class TarotDatabase:
         self.conn.commit()
 
     def update_model(self, user_id, model):
-        if model not in ["gpt4o", "gpt4o-mini", "llama3.1"]:
+        if model not in ["gpt-4o", "gpt-4o-mini", "llama3.1"]:
             raise ValueError(
-                "Invalid model. Must be 'gpt4o', 'gpt4o-mini', 'llama3.1'."
+                "Invalid model. Must be 'gpt-4o', 'gpt-4o-mini', 'llama3.1'."
             )
 
         # daily_limit = None if plan == "premium" else 5
@@ -308,6 +308,20 @@ class TarotDatabase:
             self.conn.rollback()  # Rollback the transaction in case of error
             print(f"Error occurred: {e}")
             return None
+
+    def get_model(self, user_id):
+        query = sql.SQL(
+            """
+            SELECT 
+                model
+            FROM 
+                users
+            WHERE 
+                id = %s
+            """
+        )
+        self.cursor.execute(query, (user_id,))
+        return self.cursor.fetchone()[0]
 
     def get_usage(self, user_id):
         query = sql.SQL(
