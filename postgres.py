@@ -300,6 +300,16 @@ class TarotDatabase:
             logging.error(f"Database error occurred: {e}")
             return None
            
+    def update_user(self, user_id, username, phone_number, age, gender):
+        update_query = sql.SQL(
+            """
+            UPDATE users
+            SET username = %s, phone_number = %s, age = %s, gender = %s
+            WHERE id = %s
+            """
+        )
+        self.cursor.execute(update_query, (username, phone_number, age, gender, user_id))
+        self.conn.commit()
 
     def get_plan(self, phone_number):
         try:

@@ -618,6 +618,7 @@ def updateUserModel():
         db.update_model(id, model)
         return jsonify({"status": "success"}), 201
     except Exception as e:
+        print("Error updating user model:", str(e))
         return jsonify({"status": "error", "message": str(e)}), 400
 
 
@@ -655,36 +656,50 @@ def updateUserSubscription():
 #         return jsonify({"status": "error", "message": str(e)}), 400
 
 
-@app.route("/getUser", methods=["GET"])
-def get_user():
-    user_id = request.args.get("userId")
-    if not user_id:
-        return jsonify({"error": "User ID is required"}), 400
+@app.route('/updateUser', methods=['POST'])
+def update_user():
+    data = request.get_json()
+    
+    # Basic input validation
+    required_fields = ['id', 'username', 'phone_number', 'age', 'gender']
+    for field in required_fields:
+        if field not in data:
+            return jsonify({"error": f"Missing required field: {field}"}), 400
 
+    user_id = data['id']
+    username = data['username']
+    phone_number = data['phone_number']
+    age = data['age']
+    gender = data['gender']
+
+    # Update user in database
     try:
-        user = db.get_user_info(user_id)
-
-        if user is None:
-            return jsonify(None), 200
-
-        user_info = {
-            "name": user[0],
-            "email": user[1],
-            "phone_number": user[2],
-            "age": user[3],
-            "gender": user[4],
-            "model": user[5],
-            "created_at": user[6],
-            "subscription_type": user[7],
-            "subscription_start": user[8],
-            "subscription_end": user[9],
-        }
-
-        return jsonify(user_info), 200
+        db.update_user(user_id, username, phone_number, age, gender)
     except Exception as e:
-        print("Error fetching user:", str(e))
-        return jsonify({"message": "Internal server error"}), 500
+        return jsonify({"error": "Failed to update user"}), 500
 
+    # Fetch updated user info
+    updated_user_info = db.get_user_info(user_id)
+    
+    if not updated_user_info:
+        return jsonify({"error": "User not found"}), 404
+
+    # Construct user info dictionary
+    user_info = {
+        "name": updated_user_info[0],
+        "email": updated_user_info[1],
+        "phone_number": updated_user_info[2],
+        "age": updated_user_info[3],
+        "gender": updated_user_info[4],
+        "model": updated_user_info[5],
+        "created_at": str(updated_user_info[6]) if updated_user_info[6] else None,
+        "subscription_type": updated_user_info[7],
+        "subscription_start": str(updated_user_info[8]) if updated_user_info[8] else None,
+        "subscription_end": str(updated_user_info[9]) if updated_user_info[9] else None,
+        "usage": updated_user_info[10]
+    }
+
+    return jsonify({"message": "User updated successfully", "user": user_info}), 200
 
 def upload_image(card):
     # card = "The Star"
