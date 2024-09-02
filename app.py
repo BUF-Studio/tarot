@@ -591,6 +591,26 @@ def user_session():
         return jsonify({"error": "No sessions found"}), 404
 
 
+@app.route("/userSessions/<session_id>", methods=["GET"])
+def get_user_session_by_id(session_id):
+    session = db.get_user_session_by_id(session_id)
+
+    if session:
+        session_id, question, stage, session_created, cards, summary = session
+        card = json.loads(cards)
+        result = {
+            "session_id": session_id,
+            "question": question,
+            "stage": stage,
+            "session_created": session_created,
+            "cards": card,
+            "summary": summary,
+        }
+        return jsonify(result), 200
+    else:
+        return jsonify({"error": "Session not found"}), 404
+
+
 @app.route("/webhook", methods=["GET"])
 def webhook_setup():
     mode = request.args.get("hub.mode")

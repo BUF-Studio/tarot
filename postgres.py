@@ -480,6 +480,40 @@ class TarotDatabase:
             logging.error(f"Database error occurred: {e}")
             return None
 
+    def get_user_session_by_id(self, session_id):
+        try:
+            query = sql.SQL(
+                """
+                SELECT 
+                    session.id,
+                    session.question,
+                    session.stage,
+                    session.session_created,
+                    response.cards,
+                    response.summary
+                FROM 
+                    session
+                JOIN 
+                    response ON session.response_id = response.id
+                WHERE 
+                    session.id = %s;
+                """
+            )
+            self.cursor.execute(query, (session_id,))
+            result = self.cursor.fetchone()  # Use fetchone to get a single record
+
+            if result is None:
+                logging.info(f"No session found with session ID: {session_id}")
+                return None
+
+            return result
+
+        except psycopg2.Error as e:
+            self.conn.rollback()  # Rollback the transaction in case of error
+            logging.error(f"Database error occurred: {e}")
+            return None
+
+
     def close(self):
         self.cursor.close()
         self.conn.close()
