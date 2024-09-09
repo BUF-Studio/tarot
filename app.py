@@ -549,7 +549,7 @@ def create_user():
     try:
         data = request.get_json()
         id = data["id"]
-        username = data["username"]
+        name = data["name"]
         email = data["email"]
         phone_number = data["phone_number"]
         age = data["age"]
@@ -557,7 +557,7 @@ def create_user():
 
         print(data)
 
-        user_id = db.create_user(id, username, email, phone_number, age, gender)
+        user_id = db.create_user(id, name, email, phone_number, age, gender)
         return jsonify({"status": "success", "user_id": user_id}), 201
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 400
