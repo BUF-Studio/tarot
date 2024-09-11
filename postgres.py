@@ -317,6 +317,8 @@ class TarotDatabase:
                 """
                 SELECT 
                     u.id AS user_id, 
+                    u.age,
+                    u.gender,
                     s.plan, 
                     
                     s.end_date

@@ -29,6 +29,11 @@ logging.basicConfig(
 )
 
 
+WHATSAPP_API_URL = "https://graph.facebook.com/v20.0/391867514003939/"
+ACCESS_TOKEN = "EAAQZATIbxyeQBOwLBtz7KSI1RXZBUuWcIRlqB8bUZCViXQrHXbNgZBYfFQZBEvYcjRhKAumuHxoqqeuJzJkUfTAgZCFw6rZA1Skb8YZAe6cBaggvoNgmCDacZBxTeKwdb1Nlx1H4Lx4ZCHpqbsJWZB1kHzvmxSyyxIvC1KeyYay8tEZBNM2ZBZALuc2GLCJSxrmeSIujgzTAhqCvgZBcnwyYZAIgEhZAWXOYZA2czXLmYHQf4ZD"
+VERIFY_TOKEN = "123456"
+
+
 # Set your API key from environment variable
 openai.api_key = os.getenv("OPENAI_API_KEY")
 
@@ -70,7 +75,7 @@ def ask_llama(prompt):
 def ask_openai(prompt, model):
     try:
         response = openai.ChatCompletion.create(
-            model="gpt-3.5-turbo",  # Use a supported model
+            model=model,  # Use a supported model
             messages=[{"role": "user", "content": prompt}],
             max_tokens=1000,
         )
@@ -82,10 +87,12 @@ def ask_openai(prompt, model):
         return jsonify({"error": str(e)}), 500
 
 
-def generate_tarot_cards(question, model):
+def generate_tarot_cards(question, model, age, gender):
     prompt = f"""
                 You are a tarot card reader. Please provide a detailed reading for the following question : "{question}". 
-
+                
+                The person seeking the reading is a {age}-year-old {gender}.
+                
                 Draw six cards and interpret each one according to its position. The positions are:
 
             1. You
@@ -195,10 +202,6 @@ def testRead():
 # @app.route('/ask', methods=['POST'])
 
 # VERIFY_TOKEN = os.getenv('META_VERIFY_TOKEN')
-
-WHATSAPP_API_URL = "https://graph.facebook.com/v20.0/391867514003939/"
-ACCESS_TOKEN = "EAAQZATIbxyeQBO5EvP1a9DizQe1Xdv8ZADZAl8CXOVEaI3pWGxaRfFKXpu6ZAEbFDZAIQjnVO4jkFhDNserO1BwA13gj1r87bsikNP4O9bmpqDDAI9eXoNAW7icnktnHZCGTpZB4l5HdwV1od8vMI9grP56FTC7gnIdBa2WeRkCty1blSx0kPNxvnzF84oSJowcSfyJ2sWs9tKC0gJx6G8Ro3YxFWUZD"
-VERIFY_TOKEN = "123456"
 
 
 def send_whatsapp_pic(to, mediaId):
@@ -325,7 +328,9 @@ def webhook():
                             # Retrieve session from the database
                             # session = get_session(sender_id)
                             # print(sender_id)
-                            (user_id, plan, enddate) = db.get_plan(str(sender_id))
+                            (user_id, age, gender, plan, enddate) = db.get_plan(
+                                str(sender_id)
+                            )
 
                             media_id = None
                             free = True
@@ -342,9 +347,6 @@ def webhook():
 
                                 session = db.get_session(user_id)
 
-                                print("session")
-                                print(session)
-
                                 if session:
                                     question = session[3]
                                     cards = None
@@ -352,8 +354,6 @@ def webhook():
                                     try:
                                         response = db.get_response(session[0])
 
-                                        print("response")
-                                        print(response)
                                         # Load the JSON string into a Python object
                                         cards = json.loads(response[0])
                                         summary = response[1]
@@ -389,7 +389,7 @@ def webhook():
                                     if repeat == "no":
                                         model = db.get_model(user_id)
                                         tarot_reading = generate_tarot_cards(
-                                            incoming_msg, model
+                                            incoming_msg, model, age, gender
                                         )
                                         # print(tarot_reading)
                                         cards = tarot_reading["cards"]
@@ -656,21 +656,21 @@ def updateUserSubscription():
 #         return jsonify({"status": "error", "message": str(e)}), 400
 
 
-@app.route('/updateUser', methods=['POST'])
+@app.route("/updateUser", methods=["POST"])
 def update_user():
     data = request.get_json()
-    
+
     # Basic input validation
-    required_fields = ['id', 'username', 'phone_number', 'age', 'gender']
+    required_fields = ["id", "username", "phone_number", "age", "gender"]
     for field in required_fields:
         if field not in data:
             return jsonify({"error": f"Missing required field: {field}"}), 400
 
-    user_id = data['id']
-    username = data['username']
-    phone_number = data['phone_number']
-    age = data['age']
-    gender = data['gender']
+    user_id = data["id"]
+    username = data["username"]
+    phone_number = data["phone_number"]
+    age = data["age"]
+    gender = data["gender"]
 
     # Update user in database
     try:
@@ -680,7 +680,7 @@ def update_user():
 
     # Fetch updated user info
     updated_user_info = db.get_user_info(user_id)
-    
+
     if not updated_user_info:
         return jsonify({"error": "User not found"}), 404
 
@@ -694,12 +694,15 @@ def update_user():
         "model": updated_user_info[5],
         "created_at": str(updated_user_info[6]) if updated_user_info[6] else None,
         "subscription_type": updated_user_info[7],
-        "subscription_start": str(updated_user_info[8]) if updated_user_info[8] else None,
+        "subscription_start": (
+            str(updated_user_info[8]) if updated_user_info[8] else None
+        ),
         "subscription_end": str(updated_user_info[9]) if updated_user_info[9] else None,
-        "usage": updated_user_info[10]
+        "usage": updated_user_info[10],
     }
 
     return jsonify({"message": "User updated successfully", "user": user_info}), 200
+
 
 def upload_image(card):
     # card = "The Star"
