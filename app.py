@@ -549,7 +549,7 @@ def create_user():
     try:
         data = request.get_json()
         id = data["id"]
-        username = data["username"]
+        name = data["name"]
         email = data["email"]
         phone_number = data["phone_number"]
         age = data["age"]
@@ -557,7 +557,7 @@ def create_user():
 
         print(data)
 
-        user_id = db.create_user(id, username, email, phone_number, age, gender)
+        user_id = db.create_user(id, name, email, phone_number, age, gender)
         return jsonify({"status": "success", "user_id": user_id}), 201
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 400
@@ -589,6 +589,26 @@ def user_session():
         return jsonify(result), 200
     else:
         return jsonify({"error": "No sessions found"}), 404
+
+
+@app.route("/userSessions/<session_id>", methods=["GET"])
+def get_user_session_by_id(session_id):
+    session = db.get_user_session_by_id(session_id)
+
+    if session:
+        session_id, question, stage, session_created, cards, summary = session
+        card = json.loads(cards)
+        result = {
+            "session_id": session_id,
+            "question": question,
+            "stage": stage,
+            "session_created": session_created,
+            "cards": card,
+            "summary": summary,
+        }
+        return jsonify(result), 200
+    else:
+        return jsonify({"error": "Session not found"}), 404
 
 
 @app.route("/webhook", methods=["GET"])
