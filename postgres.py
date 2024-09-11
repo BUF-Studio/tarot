@@ -11,7 +11,7 @@ class TarotDatabase:
         self.create_table()
 
     def create_table(self):
-        print('create_engine')
+        # print('create_engine')
         
         # Check if the gender enum type exists
         check_enum_exists_query = """
