@@ -30,7 +30,7 @@ logging.basicConfig(
 
 
 WHATSAPP_API_URL = "https://graph.facebook.com/v20.0/391867514003939/"
-ACCESS_TOKEN = "EAAQZATIbxyeQBOwLBtz7KSI1RXZBUuWcIRlqB8bUZCViXQrHXbNgZBYfFQZBEvYcjRhKAumuHxoqqeuJzJkUfTAgZCFw6rZA1Skb8YZAe6cBaggvoNgmCDacZBxTeKwdb1Nlx1H4Lx4ZCHpqbsJWZB1kHzvmxSyyxIvC1KeyYay8tEZBNM2ZBZALuc2GLCJSxrmeSIujgzTAhqCvgZBcnwyYZAIgEhZAWXOYZA2czXLmYHQf4ZD"
+ACCESS_TOKEN = "EAAQZATIbxyeQBOZBU4zznFQiSSvcHEZCs5vnENaG2fZAH7SgZCrYi8ABJolhNg6cLRIAJBSWHSgZCZANWgli5v5YaoxsuQ5QNDZBd7zjSG8cVi2h5xpipdMqcRolH6jrXBDcHZA5OpnKJW1jXpFz0JV8xqlmNLlPuNRAkZCFHs7IIY3ZBjpZBJdNIi8saZBjy67hu82YaMHeohxiwCDj7HzDNUbTL4bWy1lpl9zTA7PgZD"
 VERIFY_TOKEN = "123456"
 
 
@@ -38,14 +38,15 @@ VERIFY_TOKEN = "123456"
 openai.api_key = os.getenv("OPENAI_API_KEY")
 
 # Initialize the database with database parameters
-db_params = {
-    "host": os.getenv("DB_HOST"),
-    "database": os.getenv("DB_NAME"),
-    "user": os.getenv("DB_USER"),
-    "password": os.getenv("DB_PASSWORD"),
-}
+# db_params = {
+#     "host": os.getenv("DB_HOST"),
+#     "database": os.getenv("DB_NAME"),
+#     "user": os.getenv("DB_USER"),
+#     "password": os.getenv("DB_PASSWORD"),
+# }
+DB_URL = f"postgresql://{os.getenv('DB_USER')}:{os.getenv('DB_PASSWORD')}@{os.getenv('DB_HOST')}:{os.getenv('DB_PORT')}/{os.getenv('DB_NAME')}"
 
-db = TarotDatabase(db_params)
+db = TarotDatabase(DB_URL)
 
 
 groq_api_key = "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"
@@ -554,11 +555,15 @@ def create_user():
         phone_number = data["phone_number"]
         age = data["age"]
         gender = data["gender"]
+        model = data["model"]
 
         print(data)
 
-        user_id = db.create_user(id, name, email, phone_number, age, gender)
-        return jsonify({"status": "success", "user_id": user_id}), 201
+        user_id, message = db.create_user(id, name, email, phone_number, age, gender,model)
+        return (
+            jsonify({"status": "success", "user_id": user_id, "message": message}),
+            201,
+        )
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 400
 
@@ -772,3 +777,4 @@ def home():
 if __name__ == "__main__":
 
     app.run(port=5001, debug=True)
+   
