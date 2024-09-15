@@ -1,4 +1,4 @@
-import psycopg2
+# import psycopg2
 # from psycopg2 import IntegrityError, sql, connect
 from datetime import datetime, timedelta
 import logging
