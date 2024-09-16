@@ -29,18 +29,24 @@ logging.basicConfig(
 )
 
 
+WHATSAPP_API_URL = "https://graph.facebook.com/v20.0/391867514003939/"
+ACCESS_TOKEN = "EAAQZATIbxyeQBOZBU4zznFQiSSvcHEZCs5vnENaG2fZAH7SgZCrYi8ABJolhNg6cLRIAJBSWHSgZCZANWgli5v5YaoxsuQ5QNDZBd7zjSG8cVi2h5xpipdMqcRolH6jrXBDcHZA5OpnKJW1jXpFz0JV8xqlmNLlPuNRAkZCFHs7IIY3ZBjpZBJdNIi8saZBjy67hu82YaMHeohxiwCDj7HzDNUbTL4bWy1lpl9zTA7PgZD"
+VERIFY_TOKEN = "123456"
+
+
 # Set your API key from environment variable
 openai.api_key = os.getenv("OPENAI_API_KEY")
 
 # Initialize the database with database parameters
-db_params = {
-    "host": os.getenv("DB_HOST"),
-    "database": os.getenv("DB_NAME"),
-    "user": os.getenv("DB_USER"),
-    "password": os.getenv("DB_PASSWORD"),
-}
+# db_params = {
+#     "host": os.getenv("DB_HOST"),
+#     "database": os.getenv("DB_NAME"),
+#     "user": os.getenv("DB_USER"),
+#     "password": os.getenv("DB_PASSWORD"),
+# }
+DB_URL = f"postgresql://{os.getenv('DB_USER')}:{os.getenv('DB_PASSWORD')}@{os.getenv('DB_HOST')}:{os.getenv('DB_PORT')}/{os.getenv('DB_NAME')}"
 
-db = TarotDatabase(db_params)
+db = TarotDatabase(DB_URL)
 
 
 groq_api_key = "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"
@@ -70,7 +76,7 @@ def ask_llama(prompt):
 def ask_openai(prompt, model):
     try:
         response = openai.ChatCompletion.create(
-            model="gpt-3.5-turbo",  # Use a supported model
+            model=model,  # Use a supported model
             messages=[{"role": "user", "content": prompt}],
             max_tokens=1000,
         )
@@ -82,10 +88,12 @@ def ask_openai(prompt, model):
         return jsonify({"error": str(e)}), 500
 
 
-def generate_tarot_cards(question, model):
+def generate_tarot_cards(question, model, age, gender):
     prompt = f"""
                 You are a tarot card reader. Please provide a detailed reading for the following question : "{question}". 
-
+                
+                The person seeking the reading is a {age}-year-old {gender}.
+                
                 Draw six cards and interpret each one according to its position. The positions are:
 
             1. You
@@ -195,11 +203,6 @@ def testRead():
 # @app.route('/ask', methods=['POST'])
 
 # VERIFY_TOKEN = os.getenv('META_VERIFY_TOKEN')
-
-WHATSAPP_API_URL = "https://graph.facebook.com/v20.0/391867514003939/"
-ACCESS_TOKEN = "EAAQZATIbxyeQBO9ShLvTETB9CKo173Y0NxYwPKiw7gNodNZAoNZAjj4dBw1iElTDqmBq8aThn0ZBkEs985ZCZAmKTh93vQl6h0wlBXrkLAsE154r6oZAFLLIVql5iBt2asKkIyTTIB5zp9EYDIMRUcdhDuBtc5raR833MZCfO6R3SQpdjVmULt9EZB0s2k0jbBjkXXwcO9sKeTvo3GSiTnujVrZBD7w9YZD"
-VERIFY_TOKEN = "123456"
-
 
 def send_whatsapp_pic(to, mediaId):
     headers = {
@@ -325,7 +328,9 @@ def webhook():
                             # Retrieve session from the database
                             # session = get_session(sender_id)
                             # print(sender_id)
-                            (user_id, plan, enddate) = db.get_plan(str(sender_id))
+                            (user_id, age, gender, plan, enddate) = db.get_plan(
+                                str(sender_id)
+                            )
 
                             media_id = None
                             free = True
@@ -342,9 +347,6 @@ def webhook():
 
                                 session = db.get_session(user_id)
 
-                                print("session")
-                                print(session)
-
                                 if session:
                                     question = session[3]
                                     cards = None
@@ -352,8 +354,6 @@ def webhook():
                                     try:
                                         response = db.get_response(session[0])
 
-                                        print("response")
-                                        print(response)
                                         # Load the JSON string into a Python object
                                         cards = json.loads(response[0])
                                         summary = response[1]
@@ -389,7 +389,7 @@ def webhook():
                                     if repeat == "no":
                                         model = db.get_model(user_id)
                                         tarot_reading = generate_tarot_cards(
-                                            incoming_msg, model
+                                            incoming_msg, model, age, gender
                                         )
                                         # print(tarot_reading)
                                         cards = tarot_reading["cards"]
@@ -549,16 +549,20 @@ def create_user():
     try:
         data = request.get_json()
         id = data["id"]
-        username = data["username"]
+        name = data["name"]
         email = data["email"]
         phone_number = data["phone_number"]
         age = data["age"]
         gender = data["gender"]
+        model = data["model"]
 
         print(data)
 
-        user_id = db.create_user(id, username, email, phone_number, age, gender)
-        return jsonify({"status": "success", "user_id": user_id}), 201
+        user_id, message = db.create_user(id, name, email, phone_number, age, gender,model)
+        return (
+            jsonify({"status": "success", "user_id": user_id, "message": message}),
+            201,
+        )
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 400
 
@@ -591,6 +595,26 @@ def user_session():
         return jsonify({"error": "No sessions found"}), 404
 
 
+@app.route("/userSessions/<session_id>", methods=["GET"])
+def get_user_session_by_id(session_id):
+    session = db.get_user_session_by_id(session_id)
+
+    if session:
+        session_id, question, stage, session_created, cards, summary = session
+        card = json.loads(cards)
+        result = {
+            "session_id": session_id,
+            "question": question,
+            "stage": stage,
+            "session_created": session_created,
+            "cards": card,
+            "summary": summary,
+        }
+        return jsonify(result), 200
+    else:
+        return jsonify({"error": "Session not found"}), 404
+
+
 @app.route("/webhook", methods=["GET"])
 def webhook_setup():
     mode = request.args.get("hub.mode")
@@ -618,6 +642,7 @@ def updateUserModel():
         db.update_model(id, model)
         return jsonify({"status": "success"}), 201
     except Exception as e:
+        print("Error updating user model:", str(e))
         return jsonify({"status": "error", "message": str(e)}), 400
 
 
@@ -655,35 +680,52 @@ def updateUserSubscription():
 #         return jsonify({"status": "error", "message": str(e)}), 400
 
 
-@app.route("/getUser", methods=["GET"])
-def get_user():
-    user_id = request.args.get("userId")
-    if not user_id:
-        return jsonify({"error": "User ID is required"}), 400
+@app.route("/updateUser", methods=["POST"])
+def update_user():
+    data = request.get_json()
 
+    # Basic input validation
+    required_fields = ["id", "username", "phone_number", "age", "gender"]
+    for field in required_fields:
+        if field not in data:
+            return jsonify({"error": f"Missing required field: {field}"}), 400
+
+    user_id = data["id"]
+    username = data["username"]
+    phone_number = data["phone_number"]
+    age = data["age"]
+    gender = data["gender"]
+
+    # Update user in database
     try:
-        user = db.get_user_info(user_id)
-
-        if user is None:
-            return jsonify(None), 200
-
-        user_info = {
-            "name": user[0],
-            "email": user[1],
-            "phone_number": user[2],
-            "age": user[3],
-            "gender": user[4],
-            "model": user[5],
-            "created_at": user[6],
-            "subscription_type": user[7],
-            "subscription_start": user[8],
-            "subscription_end": user[9],
-        }
-
-        return jsonify(user_info), 200
+        db.update_user(user_id, username, phone_number, age, gender)
     except Exception as e:
-        print("Error fetching user:", str(e))
-        return jsonify({"message": "Internal server error"}), 500
+        return jsonify({"error": "Failed to update user"}), 500
+
+    # Fetch updated user info
+    updated_user_info = db.get_user_info(user_id)
+
+    if not updated_user_info:
+        return jsonify({"error": "User not found"}), 404
+
+    # Construct user info dictionary
+    user_info = {
+        "name": updated_user_info[0],
+        "email": updated_user_info[1],
+        "phone_number": updated_user_info[2],
+        "age": updated_user_info[3],
+        "gender": updated_user_info[4],
+        "model": updated_user_info[5],
+        "created_at": str(updated_user_info[6]) if updated_user_info[6] else None,
+        "subscription_type": updated_user_info[7],
+        "subscription_start": (
+            str(updated_user_info[8]) if updated_user_info[8] else None
+        ),
+        "subscription_end": str(updated_user_info[9]) if updated_user_info[9] else None,
+        "usage": updated_user_info[10],
+    }
+
+    return jsonify({"message": "User updated successfully", "user": user_info}), 200
 
 
 def upload_image(card):
@@ -733,3 +775,4 @@ def home():
 
 if __name__ == "__main__":
     app.run(port=5001, debug=True)
+   

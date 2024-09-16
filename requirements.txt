@@ -4,3 +4,6 @@ Flask
 Flask-CORS
 requests
 psycopg2-binary
+gunicorn
+sqlalchemy
+groq
