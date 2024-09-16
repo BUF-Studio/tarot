@@ -204,7 +204,6 @@ def testRead():
 
 # VERIFY_TOKEN = os.getenv('META_VERIFY_TOKEN')
 
-
 def send_whatsapp_pic(to, mediaId):
     headers = {
         "Authorization": f"Bearer {ACCESS_TOKEN}",
@@ -775,6 +774,5 @@ def home():
 
 
 if __name__ == "__main__":
-
     app.run(port=5001, debug=True)
    
