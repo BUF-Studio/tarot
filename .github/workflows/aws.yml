@@ -28,7 +28,7 @@ name: Deploy to Amazon ECS
 
 on:
   push:
-    branches: [ "devops/auto-deploy-ecr" ]
+    branches: [ "main" ]
 
 env:
   AWS_REGION: ap-southeast-1                   
